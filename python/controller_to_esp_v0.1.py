@@ -3,7 +3,7 @@ import pygame
 import argparse
 from websocket import create_connection
 
-DEFAULT_IP = "192.168.1.123"   # fallback if not provided
+DEFAULT_IP = "192.168.50.49"   # fallback if not provided
 
 SEND_PERIOD_S = 0.05
 DEADZONE = 0.08
