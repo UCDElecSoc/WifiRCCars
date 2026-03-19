@@ -1,0 +1,9 @@
+# a privte folder to store files that should not be shared on GitHub
+_private/
+
+# contains SSID and password for WiFi connection
+WiFi_Credentials.h 
+
+# python venv and cache files
+.venv/
+__pycache__/
