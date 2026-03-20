@@ -1,0 +1,333 @@
+Build a browser-based local-network Virtual Radio platform for MakerLab use.
+
+========================================
+DEPLOYMENT AND WORKSHOP CONTEXT
+========================================
+
+This system is a local workshop appliance, not a cloud app.
+
+Assume:
+- a dedicated lab PC runs the server
+- the server is connected via Ethernet to a router controlled by staff
+- students connect to this router over Wi-Fi
+- students access the system using ONLY a browser
+- NO installation is required on student devices
+- system must work without internet access
+
+Do NOT require:
+- native desktop apps
+- mobile apps
+- browser extensions
+- local CLI tools on student machines
+
+All normal usage must work in a standard modern browser.
+
+Configuration workflow:
+- copy/paste YAML text is the PRIMARY method
+- file download/upload is OPTIONAL convenience only
+- do not design around file management
+
+Product philosophy:
+- reliability on workshop day is critical
+- fast recovery > clever architecture
+- simple UX > feature completeness
+
+========================================
+PRODUCT GOAL
+========================================
+
+This is a reusable Virtual Radio platform that can control:
+- RC cars (first use case)
+- simulator targets
+- electronics projects
+- future MakerLab systems
+
+It is conceptually similar to an RC transmitter (e.g. TX16S),
+but MUST remain much simpler and browser-based.
+Do NOT replicate full EdgeTX complexity.
+
+========================================
+V1 SCOPE
+========================================
+
+Build Virtual Radio v1 with:
+
+- 1 server (local)
+- multiple browser clients
+- dynamic number of targets (not hardcoded)
+- one control owner per target
+- read-only observers allowed
+
+Radio:
+- 8 channels (ch1..ch8)
+- channel range: -100 to 100
+
+Pages:
+- Control page (radio)
+- Configurator page (target config)
+- Admin page
+
+First target:
+- dummy simulator target (NOT ESP yet)
+
+========================================
+SYSTEM OVERVIEW
+========================================
+
+There are 3 main subsystems:
+
+1) RADIO (Control Page)
+Produces channel values from user input.
+
+2) CONFIGURATOR
+Maps channels + formulas → target variables.
+
+3) TARGET RUNTIME
+Handles connection to targets (dummy first, ESP later).
+
+========================================
+RADIO MODEL
+========================================
+
+The radio has 3 internal layers:
+
+----------------------------------------
+1. RAW INPUTS (read-only)
+----------------------------------------
+
+Examples:
+- keyboard.W
+- keyboard.A
+- keyboard.S
+- keyboard.D
+- keyboard.Space
+- gamepad.leftX
+- gamepad.leftY
+
+Rules:
+- axes use -100 to 100
+- buttons use 0 or 100
+
+----------------------------------------
+2. RADIO PROCESSING TABLE
+----------------------------------------
+
+- defines derived values like throttle and yaw
+- uses formulas
+- admin-editable
+- collapsed by default in UI
+- read-only for students by default
+
+Example:
+- throttle = keyboard.W - keyboard.S
+- yaw = keyboard.D - keyboard.A
+
+----------------------------------------
+3. FINAL CHANNELS
+----------------------------------------
+
+- ch1..ch8
+- formulas allowed
+- must clamp to -100..100
+
+Example:
+- ch1 = throttle
+- ch2 = yaw
+
+----------------------------------------
+
+Use yaw terminology instead of steering.
+
+========================================
+CONTROL PAGE (STUDENT UX)
+========================================
+
+Visible by default:
+- target selector
+- control ownership (who is controlling)
+- take control / release control
+- preset dropdown (e.g. WASD, gamepad)
+- channel bars (ch1..ch8)
+- numeric channel values
+- connection status
+
+Collapsed section:
+- raw inputs table
+- radio processing table
+- channel definitions
+
+Students:
+- usually select a preset
+- do NOT need to edit formulas
+
+Admin:
+- can enable editing of radio processing table
+
+Invalid edits:
+- rejected on commit
+- revert to last valid value
+- show simple toast message
+
+========================================
+CONFIGURATOR PAGE
+========================================
+
+Purpose:
+Map channels to target variables.
+
+Target provides schema:
+- variable name
+- type (int, float, bool)
+- access mode (read or write)
+
+User sees table:
+
+Example:
+- throttle (write)
+- yaw (write)
+- batteryLevel (read)
+
+Users can:
+- assign formulas to write variables
+- use:
+  - ch1..ch8
+  - local variables
+  - constants
+
+Example:
+- throttle = ch1
+- yaw = ch2
+- led = if(ch3 > 0, 1, 0)
+
+Local variables allowed.
+
+Telemetry (read vars):
+- visible
+- cannot be used in formulas (v1)
+
+Config handling:
+- copy/paste YAML in text box
+- optional download/upload buttons
+
+========================================
+FORMULA LANGUAGE
+========================================
+
+Excel-style syntax.
+
+Allowed:
+- + - * /
+- parentheses
+- references (ch1, local vars)
+- functions:
+  - min
+  - max
+  - floor
+  - ceiling
+  - abs
+  - clamp
+  - if(cond, a, b)
+
+Bool:
+- true / false
+- comparisons
+
+Constraints:
+- no circular references
+- reject invalid formulas
+- revert on error
+
+========================================
+DUMMY TARGET (FIRST IMPLEMENTATION)
+========================================
+
+Implement a simulator target that:
+
+- registers with server
+- exposes schema:
+  Writable:
+    - throttle
+    - yaw
+    - led
+  Read-only:
+    - batteryLevel
+    - statusText
+
+- receives updates from server
+- emits fake telemetry
+- shows:
+  - current values
+  - connection state
+  - logs
+
+This validates the full pipeline.
+
+========================================
+ADMIN PAGE
+========================================
+
+Admin can:
+- see all targets
+- see who controls each target
+- force disconnect users
+- enable/disable targets
+- rename targets
+- inspect connections
+
+Admin may run this from the server PC.
+
+========================================
+NETWORK MODEL
+========================================
+
+- local HTTP + WebSocket server
+- browser clients connect to server
+- server coordinates everything
+
+Requirements:
+- no cloud dependencies
+- small, frequent messages (20–50 Hz control)
+- WebSocket preferred (TCP reliability)
+
+========================================
+CODEBASE REQUIREMENTS
+========================================
+
+Code must be:
+
+- modular
+- well-structured
+- easy to extend
+- documented
+
+Include:
+- README with setup instructions
+- architecture docs
+- example configs
+- comments explaining reasoning
+- clear folder structure
+
+Avoid:
+- monolithic files
+- hidden logic
+- tightly coupled modules
+
+========================================
+DELIVERY PLAN
+========================================
+
+Work in stages:
+
+1. Propose architecture and folder structure
+2. Scaffold project
+3. Implement:
+   - server
+   - control page (basic)
+   - dummy target
+4. Add configurator
+5. Add admin page
+6. Add polish and documentation
+
+Do NOT over-engineer first pass.
+
+Deliver a clean, working baseline first.

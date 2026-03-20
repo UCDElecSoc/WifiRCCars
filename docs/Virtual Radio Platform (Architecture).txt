@@ -1,0 +1,397 @@
+========================================
+PROJECT: VIRTUAL RADIO PLATFORM (MAKERLAB)
+========================================
+
+This document describes the FULL architecture, long-term vision, and phased implementation plan
+for a browser-based Virtual Radio system used in MakerLab workshops.
+
+This is a CONTEXT / REFERENCE DOCUMENT.
+It contains more detail than needed for initial implementation.
+
+========================================
+HIGH-LEVEL GOAL
+========================================
+
+Build a reusable system where:
+
+- students use a browser as a "virtual radio transmitter"
+- a local server coordinates everything
+- targets (initially RC cars using ESP32-C6) receive control data
+- configuration is done through a web UI using formulas and variables
+- no installation is required on student devices
+
+System must be:
+- reliable in workshop conditions
+- fast to set up and recover
+- modular and extensible
+
+========================================
+SYSTEM COMPONENTS
+========================================
+
+The system has 4 core layers:
+
+----------------------------------------
+1) RADIO (CONTROL PAGE)
+----------------------------------------
+
+Purpose:
+Convert human input → normalized channel outputs.
+
+Inputs:
+- keyboard
+- gamepad
+- touch joystick (future)
+
+Internal layers:
+1. raw inputs
+2. radio processing (formulas, presets)
+3. final channels (ch1..ch8)
+
+Output:
+- channel frame (8 channels, -100..100)
+
+Constraints:
+- one control owner per target
+- observers allowed (read-only)
+- preset-driven for students
+- advanced editing admin-controlled
+
+----------------------------------------
+2) CONFIGURATOR (VARIABLE ENGINE)
+----------------------------------------
+
+Purpose:
+Convert channels → target-specific variables.
+
+Concept:
+Target defines variables, user maps them.
+
+Target variables:
+- name
+- type (int, float, bool)
+- access mode (read/write)
+
+User can:
+- assign formulas to writable variables
+- define local variables
+- view telemetry
+
+Example:
+- throttle = ch1
+- yaw = ch2
+- led = if(ch3 > 0, 1, 0)
+
+Formula engine:
+- Excel-style
+- dependency graph
+- cycle detection
+
+Constraints:
+- telemetry (read vars) not used in formulas (v1)
+- write-only vars cannot be referenced
+
+----------------------------------------
+3) TARGET RUNTIME
+----------------------------------------
+
+Purpose:
+Connect real or simulated devices to the system.
+
+Types:
+- dummy simulator target (v1)
+- ESP32-C6 hardware target (v2)
+
+Responsibilities:
+- register with server
+- send schema (variables)
+- receive write updates
+- send telemetry updates
+- maintain heartbeat
+
+----------------------------------------
+4) ADMIN SYSTEM
+----------------------------------------
+
+Purpose:
+Maintain control during workshop.
+
+Features:
+- list all targets
+- view connections
+- force disconnect users
+- reassign targets
+- rename targets
+- disable/enable targets
+- system overview
+
+========================================
+NETWORK ARCHITECTURE
+========================================
+
+Topology:
+
+Laptop/Phone (browser)
+        ↓
+   Wi-Fi Router (owned)
+        ↓
+Server PC (Ethernet)
+        ↓
+ESP32 devices (Wi-Fi)
+
+Key properties:
+- fully local network
+- no internet dependency
+- server is central authority
+- WebSocket for real-time control
+
+Control rate:
+- ~20–50 Hz
+
+========================================
+CHANNEL MODEL
+========================================
+
+Channels:
+- ch1..ch8 (v1)
+- range: -100 to 100
+
+Semantic examples:
+- ch1 = throttle
+- ch2 = yaw
+
+Channels are:
+- normalized
+- hardware-agnostic
+- reusable across targets
+
+========================================
+INPUT MODEL
+========================================
+
+Raw inputs:
+
+Axes:
+- range: -100 to 100
+Examples:
+- gamepad.leftX
+- gamepad.leftY
+
+Buttons:
+- range: 0 or 100
+Examples:
+- keyboard.W
+- keyboard.Space
+
+Derived signals:
+- throttle = W - S
+- yaw = D - A
+
+========================================
+ESP32-C6 TARGET (FUTURE PHASE)
+========================================
+
+Hardware:
+- ESP32-C6
+- L298 motor driver
+- 2 or 4 DC motors
+- optional LEDs, buzzer
+
+Firmware concept:
+- generic "variable runtime"
+- minimal user modification
+
+Firmware responsibilities:
+- connect to Wi-Fi
+- connect to server
+- send schema on startup
+- receive variable updates
+- update internal variables
+- expose telemetry
+- maintain heartbeat
+
+----------------------------------------
+VARIABLE MODEL ON ESP
+----------------------------------------
+
+Each variable:
+- name
+- type
+- access mode (read/write)
+- current value
+- default value
+- last update timestamp
+
+Example:
+- throttle (write, float)
+- yaw (write, float)
+- batteryLevel (read, float)
+
+----------------------------------------
+UPDATE MODEL
+----------------------------------------
+
+Server → ESP:
+- send changed variables
+- periodic full refresh
+
+ESP:
+- stores values in RAM
+- uses defaults if stale
+
+----------------------------------------
+USER CODE MODEL
+----------------------------------------
+
+User sketch:
+- defines pins
+- registers variables
+- reads values from runtime
+- applies to hardware
+
+Example:
+- throttle → motor speed
+- yaw → differential steering
+
+========================================
+CONFIGURATION MODEL
+========================================
+
+Primary workflow:
+- copy/paste YAML in browser
+
+Optional:
+- download/upload file
+
+Radio config includes:
+- aliases
+- presets
+- input mappings
+- processing rows
+- channel definitions
+
+Target config includes:
+- variable bindings
+- local vars
+- formulas
+
+========================================
+FORMULA ENGINE
+========================================
+
+Supported:
+- arithmetic
+- references
+- functions:
+  min, max, floor, ceiling, abs, clamp, if
+
+Features:
+- dependency graph
+- cycle detection
+- type coercion
+
+Strategy:
+- rebuild graph on each edit
+- reject cycles
+
+========================================
+PHASED IMPLEMENTATION PLAN
+========================================
+
+----------------------------------------
+PHASE 1 — CORE RADIO + DUMMY TARGET
+----------------------------------------
+
+Goal:
+End-to-end system with no hardware.
+
+Build:
+- server
+- WebSocket system
+- control page
+- dummy target
+- channel system
+- ownership model
+
+Test:
+- multiple clients
+- control locking
+- observers
+- channel updates
+
+----------------------------------------
+PHASE 2 — CONFIGURATOR
+----------------------------------------
+
+Goal:
+Introduce variable mapping.
+
+Build:
+- target schema handling
+- config page
+- formula engine
+- YAML import/export
+
+Test:
+- variable binding
+- formula evaluation
+- error handling
+- cycle detection
+
+----------------------------------------
+PHASE 3 — ADMIN PANEL
+----------------------------------------
+
+Goal:
+Workshop reliability.
+
+Build:
+- admin UI
+- force disconnect
+- registry view
+- system status
+
+----------------------------------------
+PHASE 4 — ESP32 INTEGRATION
+----------------------------------------
+
+Goal:
+Real hardware.
+
+Build:
+- ESP runtime library
+- connection protocol
+- variable sync
+- basic RC car control
+
+Test:
+- latency
+- disconnect handling
+- recovery
+- multiple devices
+
+----------------------------------------
+PHASE 5 — POLISH
+----------------------------------------
+
+Optional:
+- better UI
+- presets
+- logs
+- performance tuning
+
+========================================
+DESIGN PRINCIPLES
+========================================
+
+1. No-install for students
+2. Local-first operation
+3. Clear separation of concerns
+4. Simplicity before completeness
+5. Recoverability over elegance
+6. Modular codebase
+7. Explicit data flow
+
+========================================
+END OF DOCUMENT
+========================================
