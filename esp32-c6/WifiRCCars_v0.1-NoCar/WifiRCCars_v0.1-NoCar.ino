@@ -20,7 +20,7 @@
 #include <WiFi.h>
 #include <WebSocketsServer.h>   // v2.7.2; library is literally called "WebSockets" by Markus Sattler
 #include <Adafruit_NeoPixel.h> // v1.15.4
-#include "WiFi_Credentials.h"
+#include "../WiFi_Credentials.h"
 
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASS;
